@@ -1,0 +1,12 @@
+# cargo-release configuration
+# Usage: cargo release [patch|minor|major]
+# This will bump the version, commit, tag, and push — which triggers CI.
+
+# Tag format must match the workflow trigger pattern: v[0-9]+.[0-9]+.[0-9]*
+tag-name = "v{{version}}"
+
+# Don't publish to crates.io
+publish = false
+
+# Push commits and the tag to trigger CI
+push = true
