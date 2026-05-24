@@ -1,34 +1,28 @@
 use serde_json::Value as JsonValue;
-use serde_yaml::Value as YamlValue;
+use yaml_rust2::Yaml;
 
-/// Recursively convert a serde_yaml Value into a serde_json Value.
-pub fn yaml_to_json(yaml: YamlValue) -> JsonValue {
+/// Recursively convert a yaml_rust2 Yaml value into a serde_json Value.
+pub fn yaml_to_json(yaml: Yaml) -> JsonValue {
     match yaml {
-        YamlValue::Null => JsonValue::Null,
-        YamlValue::Bool(b) => JsonValue::Bool(b),
-        YamlValue::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                JsonValue::Number(i.into())
-            } else if let Some(u) = n.as_u64() {
-                JsonValue::Number(u.into())
-            } else if let Some(f) = n.as_f64() {
-                serde_json::Number::from_f64(f)
-                    .map(JsonValue::Number)
-                    .unwrap_or(JsonValue::Null)
-            } else {
-                JsonValue::Null
-            }
-        }
-        YamlValue::String(s) => JsonValue::String(s),
-        YamlValue::Sequence(seq) => JsonValue::Array(seq.into_iter().map(yaml_to_json).collect()),
-        YamlValue::Mapping(map) => {
+        Yaml::Null | Yaml::BadValue => JsonValue::Null,
+        Yaml::Boolean(b) => JsonValue::Bool(b),
+        Yaml::Integer(i) => JsonValue::Number(i.into()),
+        Yaml::Real(s) => s
+            .parse::<f64>()
+            .ok()
+            .and_then(serde_json::Number::from_f64)
+            .map(JsonValue::Number)
+            .unwrap_or(JsonValue::Null),
+        Yaml::String(s) => JsonValue::String(s),
+        Yaml::Array(arr) => JsonValue::Array(arr.into_iter().map(yaml_to_json).collect()),
+        Yaml::Hash(map) => {
             let obj = map
                 .into_iter()
                 .map(|(k, v)| {
                     let key = match k {
-                        YamlValue::String(s) => s,
-                        YamlValue::Number(n) => n.to_string(),
-                        YamlValue::Bool(b) => b.to_string(),
+                        Yaml::String(s) => s,
+                        Yaml::Integer(i) => i.to_string(),
+                        Yaml::Boolean(b) => b.to_string(),
                         other => format!("{other:?}"),
                     };
                     (key, yaml_to_json(v))
@@ -36,36 +30,44 @@ pub fn yaml_to_json(yaml: YamlValue) -> JsonValue {
                 .collect();
             JsonValue::Object(obj)
         }
-        YamlValue::Tagged(tagged) => yaml_to_json(tagged.value),
+        // Aliases are resolved by the loader; this branch is a fallback.
+        Yaml::Alias(_) => JsonValue::Null,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_yaml::from_str;
+    use yaml_rust2::YamlLoader;
+
+    fn load_one(s: &str) -> Yaml {
+        YamlLoader::load_from_str(s).unwrap().remove(0)
+    }
 
     #[test]
     fn test_simple_mapping() {
-        let y: YamlValue = from_str("foo: bar\nnum: 42").unwrap();
-        let j = yaml_to_json(y);
+        let j = yaml_to_json(load_one("foo: bar\nnum: 42"));
         assert_eq!(j["foo"], "bar");
         assert_eq!(j["num"], 42);
     }
 
     #[test]
     fn test_nested() {
-        let y: YamlValue = from_str("a:\n  b:\n    - 1\n    - 2").unwrap();
-        let j = yaml_to_json(y);
+        let j = yaml_to_json(load_one("a:\n  b:\n    - 1\n    - 2"));
         assert_eq!(j["a"]["b"][0], 1);
         assert_eq!(j["a"]["b"][1], 2);
     }
 
     #[test]
     fn test_null_and_bool() {
-        let y: YamlValue = from_str("x: ~\nflag: true").unwrap();
-        let j = yaml_to_json(y);
+        let j = yaml_to_json(load_one("x: ~\nflag: true"));
         assert_eq!(j["x"], JsonValue::Null);
         assert_eq!(j["flag"], true);
+    }
+
+    #[test]
+    fn test_aliases() {
+        let j = yaml_to_json(load_one("base: &anchor\n  x: 1\nchild:\n  <<: *anchor\n  y: 2"));
+        assert_eq!(j["base"]["x"], 1);
     }
 }

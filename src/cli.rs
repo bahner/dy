@@ -9,7 +9,7 @@ use clap::Parser;
 #[command(author, version, about)]
 pub struct Args {
     /// Kubo API base URL
-    #[arg(long, default_value = "http://127.0.0.1:5003")]
+    #[arg(long, default_value = "http://127.0.0.1:5001")]
     pub kubo_url: String,
 
     /// Print the full Kubo API response to stderr in addition to the CID

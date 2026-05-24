@@ -4,8 +4,8 @@ mod ipfs;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use serde::Deserialize;
 use std::io::Read;
+use yaml_rust2::YamlLoader;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -18,16 +18,18 @@ async fn main() -> Result<()> {
         .build()
         .context("failed to build HTTP client")?;
 
-    let mut doc_count = 0usize;
+    let documents =
+        YamlLoader::load_from_str(&input).context("failed to parse YAML input")?;
+
+    if documents.is_empty() {
+        anyhow::bail!("no YAML documents found in input");
+    }
+
     let mut errors = 0usize;
 
-    for document in serde_yaml::Deserializer::from_str(&input) {
-        doc_count += 1;
-
-        let yaml_value = serde_yaml::Value::deserialize(document)
-            .with_context(|| format!("failed to parse YAML document #{doc_count}"))?;
-
-        let json_value = convert::yaml_to_json(yaml_value);
+    for (idx, document) in documents.into_iter().enumerate() {
+        let doc_count = idx + 1;
+        let json_value = convert::yaml_to_json(document);
 
         match ipfs::dag_put(&client, &args.kubo_url, &json_value, args.verbose).await {
             Ok(cid) => println!("{cid}"),
@@ -36,10 +38,6 @@ async fn main() -> Result<()> {
                 errors += 1;
             }
         }
-    }
-
-    if doc_count == 0 {
-        anyhow::bail!("no YAML documents found in input");
     }
 
     if errors > 0 {

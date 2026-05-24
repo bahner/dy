@@ -36,10 +36,19 @@ pub async fn dag_put(
         .with_context(|| format!("failed to connect to Kubo at {url}"))?;
 
     let status = response.status();
-    let body: JsonValue = response
-        .json()
+    let body_bytes = response
+        .bytes()
         .await
-        .context("failed to parse Kubo response as JSON")?;
+        .context("failed to read Kubo response body")?;
+
+    if body_bytes.is_empty() {
+        bail!("Kubo returned HTTP {status} with an empty response body");
+    }
+
+    let body: JsonValue = serde_json::from_slice(&body_bytes).with_context(|| {
+        let text = String::from_utf8_lossy(&body_bytes);
+        format!("failed to parse Kubo response as JSON (raw body: {text})")
+    })?;
 
     if verbose {
         eprintln!(
@@ -57,7 +66,7 @@ pub async fn dag_put(
     }
 
     let cid = body
-        .pointer("/Cid//")
+        .pointer("/Cid/~1")
         .and_then(|v| v.as_str())
         .with_context(|| format!("unexpected Kubo response shape: {body}"))?;
 
