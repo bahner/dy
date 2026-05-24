@@ -1,6 +1,6 @@
 [package]
 name = "dag-yaml"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Convert YAML to IPFS dag-cbor IPLD nodes via Kubo"
 license = "MIT"
