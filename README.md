@@ -35,7 +35,7 @@ dy --verbose data.yaml
 
 | Flag | Default | Description |
 |---|---|---|
-| `--kubo-url` | `http://127.0.0.1:5003` | Kubo API base URL |
+| `--kubo-url` | `http://127.0.0.1:5001` | Kubo API base URL |
 | `--verbose` / `-v` | off | Print full Kubo JSON response to stderr |
 | `FILE` | stdin | YAML file to read |
 
@@ -106,7 +106,7 @@ Pushing a tag of the form `v<semver>` (e.g. `v1.0.0`) triggers GitHub Actions to
 
 ## Requirements
 
-A running [Kubo](https://github.com/ipfs/kubo) node with the HTTP API enabled (default port `5001`; this tool defaults to `5003` — adjust with `--kubo-url`).
+A running [Kubo](https://github.com/ipfs/kubo) node with the HTTP API enabled.
 
 ## License
 
